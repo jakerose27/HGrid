@@ -26,7 +26,7 @@ grunt.initConfig({
 	   },
 
     qunit: {
-        all: ['examples/example.html']
+        all: ['examples/test.html']
     },
 
     yuidoc: {
