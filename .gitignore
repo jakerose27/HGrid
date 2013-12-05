@@ -1,8 +1,8 @@
 .DS_Store
 .idea/
 *.pyc
-node_modules/
 venv/
 out/
-node_modules/
 *~
+
+node_modules
