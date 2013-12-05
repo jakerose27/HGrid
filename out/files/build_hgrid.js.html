@@ -92,6 +92,7 @@
  * @class HGrid
  * @author Jake Rosenberg
  * @author Alexander Ferguson
+ * test
  */
 var HGrid = {
     //Gives each div a class based on type (folder or file)
@@ -119,6 +120,7 @@ var HGrid = {
     @param defaultOptions.topCrumb true
     @param defaultOptions.forceFitColumns true
     @param defaultOptions.autoHeight true
+    @param defaultOptions.navigation true
     **/
     defaultOptions: {
         container: null,
@@ -126,7 +128,7 @@ var HGrid = {
         info: null,
         columns: [
             {id: &quot;uid&quot;, name: &quot;uid&quot;, width: 40, field: &quot;uid&quot;},
-            {id: &quot;name&quot;, name: &quot;Name&quot;, field: &quot;name&quot;, width: 450, cssClass: &quot;cell-title&quot;, editor: Slick.Editors.Text, sortable: true, defaultSortAsc: true}
+            {id: &quot;name&quot;, name: &quot;Name&quot;, field: &quot;name&quot;, width: 450, cssClass: &quot;cell-title&quot;, sortable: true, defaultSortAsc: true}
         ],
         editable: false,
         enableCellNavigation: false,
@@ -143,6 +145,7 @@ var HGrid = {
         topCrumb: true,
         forceFitColumns: true,
         autoHeight: true,
+        navigation: true
     },
 
     Slick: {
@@ -211,6 +214,10 @@ var HGrid = {
         }
         self.initialize();
         $.extend(this, {
+
+            hGridOnMouseEnter: new self.Slick.Event(),
+            hGridOnMouseLeave: new self.Slick.Event(),
+            hGridOnClick: new self.Slick.Event(),
             /**
              Fired before a move occurs
 
@@ -319,7 +326,15 @@ var HGrid = {
              @param {Object} e Event object
              @param {Object} args File object response
              **/
-            hGridOnUpload: new self.Slick.Event()
+            hGridOnUpload: new self.Slick.Event(),
+             /**
+             Fired on success response from server on upload
+
+             @event hGridAfterNav
+             @param {Object} e Event object
+             @param {Object} args nav level
+             **/
+            hGridAfterNav: new self.Slick.Event()
         });
         return self;
     },
@@ -397,7 +412,6 @@ var HGrid = {
         var data = args[0];
         var _this = args[1];
         if (_this.options.navLevel != &quot;null&quot;) {
-//            if (item[&quot;sortpath&quot;].indexOf(_this.options.navLevel) != 0) {
             if ( item[&quot;sortpath&quot;].indexOf(_this.options.navLevel) != 0 ) {
                 return false;
             }
@@ -429,7 +443,8 @@ var HGrid = {
     },
 
     updateNav: function(){
-        var nav = this.options.navLevel;
+        var _this = this;
+        var nav = _this.options.navLevel;
         nav = nav.split(&quot;/&quot;);
         nav = nav.pop();
         this.navLevelFilter(nav);
@@ -452,6 +467,7 @@ var HGrid = {
             }
         } else {
             _this.options.navLevel = &quot;null&quot;;
+            _this.currentIndentShift = 0;
             _this.Slick.grid.invalidate();
             _this.updateBreadcrumbsBox(itemUid);
             _this.Slick.dataView.setFilterArgs([_this.data, this])
@@ -463,6 +479,7 @@ var HGrid = {
         _this.Slick.dataView.setFilter(_this.myFilter);
         _this.Slick.grid.invalidate();
         _this.updateBreadcrumbsBox(itemUid);
+        _this.hGridAfterNav.notify(item);
     },
 
      /**
@@ -533,6 +550,7 @@ var HGrid = {
             if(currentDropCell===null){
                 dropHighlight = null;
                 myDropzone.options.dropDestination = null;
+                hGrid.draggerGuide(dropHighlight);
             }
             else{
                 currentDropCell.insertBefore = currentDropCell[&#x27;row&#x27;];
@@ -546,11 +564,14 @@ var HGrid = {
                     dropHighlight = hGrid.getItemByValue(hGrid.data, childDropHighlight[&#x27;parent_uid&#x27;], &#x27;uid&#x27;);
                     myDropzone.options.dropDestination = dropHighlight[&#x27;uid&#x27;];
                 }
+                if(dropHighlight[&#x27;permission&#x27;]==&quot;true&quot; || typeof dropHighlight[&#x27;permission&#x27;] == &#x27;undefined&#x27;){
+                    hGrid.draggerGuide(dropHighlight);
+                }
             }
             if(bool){
                 myDropzone.options.url = hGrid.options[&#x27;urlAdd&#x27;][myDropzone.options.dropDestination];
             }
-            hGrid.draggerGuide(dropHighlight);
+
         });
 
         myDropzone.on(&quot;addedfile&quot;, function(file){
@@ -563,13 +584,15 @@ var HGrid = {
                 parent = hGrid.getItemByValue(hGrid.data, myDropzone.options.dropDestination, &#x27;uid&#x27;);
             }
             var value = {item: file, parent: parent};
-            var event_status = hGrid.hGridBeforeUpload.notify(value);
-            if(event_status===false){
-                myDropzone.removeFile(file);
-                value[&#x27;success&#x27;] = false;
-                hGrid.updateNav();
-                hGrid.hGridAfterUpload.notify(value);
-            }
+            var promise = $.when(hGrid.hGridBeforeUpload.notify(value));
+            promise.always(function(event_status){
+                if(event_status===false){
+                    myDropzone.removeFile(file);
+                    value[&#x27;success&#x27;] = false;
+                    hGrid.updateNav();
+                    hGrid.hGridAfterUpload.notify(value);
+                }
+            });
         });
 
         myDropzone.on(&quot;dragleave&quot;, function(e){
@@ -578,7 +601,8 @@ var HGrid = {
 // Pass the destination folder to the server
         myDropzone.on(&quot;sending&quot;, function(file, xhr, formData){
             hGrid.updateNav();
-            $(&#x27;#totalProgressActive&#x27;).addClass(&#x27;active progress-striped progress&#x27;);
+            $(&#x27;#totalProgress&#x27;).show();
+            $(&#x27;#totalProgressActive&#x27;).addClass(&#x27;progress progress-striped active&#x27;);
             formData.append(&quot;destination&quot;, myDropzone.options.dropDestination);
         });
 
@@ -591,25 +615,30 @@ var HGrid = {
             $(&#x27;#totalProgress&#x27;).css(&#x27;width&#x27;, progress + &quot;%&quot;);
             if (progress==100){
                 setTimeout(function(){
-                    $(&#x27;#totalProgressActive&#x27;).removeClass(&#x27;active progress-striped progress&#x27;);
+
                 },(1*1000));
             }
         })
 // Hook the drop success to the grid view update
         myDropzone.on(&quot;success&quot;, function(file) {
             var value;
-            var event_status = hGrid.hGridOnUpload.notify(file);
-            if (event_status || typeof(event_status)==&#x27;undefined&#x27;){
-                value = {item: JSON.parse(file.xhr.response)[0], success: true};
-                value[&#x27;item&#x27;][&#x27;name&#x27;] = file.name;
-                hGrid.updateNav();
-                hGrid.hGridAfterUpload.notify(value);
-            }
-            else{
-                value = {item: file, success: false};
-                hGrid.updateNav();
-                hGrid.hGridAfterUpload.notify(value);
-            }
+            var promise = $.when(hGrid.hGridOnUpload.notify(file));
+            promise.always(function(event_status){
+                $(&#x27;#totalProgressActive&#x27;).removeClass(&#x27;progress progress-striped active&#x27;);
+                $(&#x27;#totalProgress&#x27;).hide();
+                $(&#x27;#totalProgress&#x27;).css(&#x27;width&#x27;, &quot;0%&quot;);
+                if (event_status || typeof(event_status)==&#x27;undefined&#x27;){
+                    value = {item: JSON.parse(file.xhr.response)[0], success: true};
+                    value[&#x27;item&#x27;][&#x27;name&#x27;] = file.name;
+                    hGrid.updateNav();
+                    hGrid.hGridAfterUpload.notify(value);
+                }
+                else{
+                    value = {item: file, success: false};
+                    hGrid.updateNav();
+                    hGrid.hGridAfterUpload.notify(value);
+                }
+            });
         });
     },
 
@@ -651,29 +680,70 @@ var HGrid = {
         var parent= _this.getItemByValue(_this.data, item[&#x27;parent_uid&#x27;], &#x27;uid&#x27;);
         var value = {&#x27;item&#x27;: item, &#x27;parent&#x27;:parent};
         var valueAfter = {&#x27;item&#x27;: item, &#x27;parent&#x27;:parent};
-        var event_status = _this.hGridBeforeAdd.notify(value);
-        if(event_status || typeof(event_status)===&#x27;undefined&#x27;){
-            if(item[&#x27;parent_uid&#x27;]!=&quot;null&quot; &amp;&amp; !item[&#x27;uploadBar&#x27;]){
-                var parent_path = parent[&#x27;path&#x27;];
-                item[&#x27;path&#x27;]=[];
-                item[&#x27;path&#x27;]=item[&#x27;path&#x27;].concat(parent_path, item[&#x27;uid&#x27;]);
-                item[&#x27;sortpath&#x27;]=item[&#x27;path&#x27;].join(&#x27;/&#x27;);
+        var promise = $.when(_this.hGridBeforeAdd.notify(value));
+        promise.always(function(event_status){
+            if(event_status || typeof(event_status)===&#x27;undefined&#x27;){
+                if(item[&#x27;parent_uid&#x27;]!=&quot;null&quot; &amp;&amp; !item[&#x27;uploadBar&#x27;]){
+                    var parent_path = parent[&#x27;path&#x27;];
+                    item[&#x27;path&#x27;]=[];
+                    item[&#x27;path&#x27;]=item[&#x27;path&#x27;].concat(parent_path, item[&#x27;uid&#x27;]);
+                    item[&#x27;sortpath&#x27;]=item[&#x27;path&#x27;].join(&#x27;/&#x27;);
+                    if(!item[&#x27;type&#x27;]) item[&#x27;type&#x27;]=&#x27;file&#x27;;
+                }
+                var sortCol = _this.Slick.grid.getSortColumns()[0];
+                var spliceId = null;
+                if(typeof(sortCol)!==&#x27;undefined&#x27;){
+                    var sortId = sortCol[&#x27;columnId&#x27;];
+                    var asc = sortCol[&#x27;sortAsc&#x27;];
+                    var searchData = _this.getItemsByValue(_this.data, parent[&#x27;uid&#x27;], &quot;parent_uid&quot;);
+
+                    if(searchData.length != 0){
+                        var comp = null;
+                        var compValue = null;
+                        var itemValue = typeof(item[sortId]) == &#x27;string&#x27; ? item[sortId].toLowerCase() : item[sortId];
+                        itemValue = sortId == &#x27;size&#x27; ? parseInt(itemValue) : itemValue;
+                        for(var i=0; i&lt;searchData.length; i++){
+                            comp = searchData[i];
+                            compValue = typeof(comp[sortId]) == &#x27;string&#x27; ? comp[sortId].toLowerCase() : comp[sortId];
+                            compValue = sortId == &#x27;size&#x27; ? parseInt(compValue) : compValue;
+                            spliceId = comp[&#x27;id&#x27;]+1;
+                            if(asc){
+                                if(compValue &gt; itemValue){
+                                    spliceId = comp[&#x27;id&#x27;];
+                                    break;
+                                }
+                            }
+                            else{
+                                if(compValue &lt; itemValue){
+                                    spliceId = comp[&#x27;id&#x27;];
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    else{
+                        spliceId = parent[&#x27;id&#x27;]+1;
+                    }
+                }
+                else{
+                    spliceId = parent[&#x27;id&#x27;]+1;
+                }
+                _this.data.splice(spliceId, 0,item);
+                _this.prepJava(_this.data);
+                _this.Slick.dataView.setItems(_this.data);
+                _this.Slick.grid.setSelectedRows([]);
+                _this.currentlyRendered=[];
+                valueAfter[&#x27;success&#x27;] = true;
+                _this.hGridAfterAdd.notify(value);
+                return true;
             }
-            _this.data.splice(parent[&#x27;id&#x27;]+1, 0,item);
-            _this.prepJava(_this.data);
-            _this.Slick.dataView.setItems(_this.data);
-            _this.Slick.grid.setSelectedRows([]);
-            _this.currentlyRendered=[];
-            valueAfter[&#x27;success&#x27;] = true;
-            _this.hGridAfterAdd.notify(value);
-            return true;
-        }
-        else{
-            valueAfter[&#x27;success&#x27;] = false;
-            _this.updateNav();
-            _this.hGridAfterAdd.notify(value);
-            return false;
-        }
+            else{
+                valueAfter[&#x27;success&#x27;] = false;
+                _this.updateNav();
+                _this.hGridAfterAdd.notify(value);
+                return false;
+            }
+        });
     },
 
     /**
@@ -709,12 +779,13 @@ var HGrid = {
         _this.currentlyRendered=[];
         _this.Slick.grid.render();
         return true;
+    },
 
-//        else{
-//            value[&#x27;success&#x27;] = false;
-//            _this.hGridAfterAdd.notify(value);
-//            return false;
-//        }
+    hasChildren: function(itemUid) {
+        var _this = this;
+        if(_this.getItemByValue(_this.data, itemUid, &quot;parent_uid&quot;)!=false)
+            return true;
+        return false;
     },
 
     /**
@@ -743,27 +814,29 @@ var HGrid = {
         }
 
         value[&#x27;insertBefore&#x27;]=destination[&#x27;id&#x27;]+1;
-        var event_status = _this.hGridBeforeMove.notify(value);
-        if(event_status || typeof(event_status)===&#x27;undefined&#x27;){
-            if(_this.itemMover(value, url, src_id, dest_path)){
-                value[&#x27;success&#x27;]=true;
-                _this.updateNav();
-                _this.hGridAfterMove.notify(value);
-                return true;
+        var promise = $.when(_this.hGridBeforeMove.notify(value));
+        promise.always(function(event_status){
+            if(event_status || typeof(event_status)===&#x27;undefined&#x27;){
+                if(_this.itemMover(value, url, src_id, dest_path)){
+                    value[&#x27;success&#x27;]=true;
+                    _this.updateNav();
+                    _this.hGridAfterMove.notify(value);
+                    return true;
+                }
+                else {
+                    value[&#x27;success&#x27;]=&quot;There was an error with the grid&quot;;
+                    _this.updateNav();
+                    _this.hGridAfterMove.notify(value);
+                    return false;
+                }
             }
-            else {
-                value[&#x27;success&#x27;]=&quot;There was an error with the grid&quot;;
+            else{
+                value[&#x27;success&#x27;]=false;
                 _this.updateNav();
                 _this.hGridAfterMove.notify(value);
                 return false;
             }
-        }
-        else{
-            value[&#x27;success&#x27;]=false;
-            _this.updateNav();
-            _this.hGridAfterMove.notify(value);
-            return false;
-        }
+        });
     },
 
     /**
@@ -781,37 +854,39 @@ var HGrid = {
             value[&#x27;items&#x27;].push(_this.getItemByValue(_this.data, rowsToDelete[j], &#x27;uid&#x27;));
             valueAfter[&#x27;items&#x27;].push(_this.getItemByValue(_this.data, rowsToDelete[j], &#x27;uid&#x27;));
         }
-        var event_status = _this.hGridBeforeDelete.notify(value);
-        if(event_status || typeof(event_status)===&#x27;undefined&#x27;){
-            for(var i=0; i&lt;rowsToDelete.length; i++){
-                var rows=[];
-                var check = _this.getItemByValue(_this.data, rowsToDelete[i], &#x27;uid&#x27;)[&#x27;id&#x27;];
-                var j = check;
-                do{
-                    rows.push(j);
-                    j+=1;
-                }while(_this.data[j] &amp;&amp; _this.data[j][&#x27;indent&#x27;]&gt;_this.data[check][&#x27;indent&#x27;]);
+        var promise = $.when(_this.hGridBeforeDelete.notify(value));
+        promise.always(function(event_status) {
+            if(event_status || typeof(event_status)===&#x27;undefined&#x27;){
+                for(var i=0; i&lt;rowsToDelete.length; i++){
+                    var rows=[];
+                    var check = _this.getItemByValue(_this.data, rowsToDelete[i], &#x27;uid&#x27;)[&#x27;id&#x27;];
+                    var j = check;
+                    do{
+                        rows.push(j);
+                        j+=1;
+                    }while(_this.data[j] &amp;&amp; _this.data[j][&#x27;indent&#x27;]&gt;_this.data[check][&#x27;indent&#x27;]);
 
-                _this.data.splice(rows[0], rows.length);
+                    _this.data.splice(rows[0], rows.length);
+                    _this.Slick.dataView.setItems(_this.data);
+                }
+                _this.prepJava(_this.data);
                 _this.Slick.dataView.setItems(_this.data);
+                _this.Slick.grid.invalidate();
+                _this.Slick.grid.setSelectedRows([]);
+                _this.currentlyRendered=[];
+                _this.Slick.grid.render();
+                valueAfter[&#x27;success&#x27;]=true;
+                _this.updateNav();
+                _this.hGridAfterDelete.notify(valueAfter);
+                return true;
             }
-            _this.prepJava(_this.data);
-            _this.Slick.dataView.setItems(_this.data);
-            _this.Slick.grid.invalidate();
-            _this.Slick.grid.setSelectedRows([]);
-            _this.currentlyRendered=[];
-            _this.Slick.grid.render();
-            valueAfter[&#x27;success&#x27;]=true;
-            _this.updateNav();
-            _this.hGridAfterDelete.notify(valueAfter);
-            return true;
-        }
-        else{
-            valueAfter[&#x27;success&#x27;]=false;
-            _this.updateNav();
-            _this.hGridAfterDelete.notify(valueAfter);
-            return false;
-        }
+            else{
+                valueAfter[&#x27;success&#x27;]=false;
+                _this.updateNav();
+                _this.hGridAfterDelete.notify(valueAfter);
+                return false;
+            }
+        });
     },
 
     /**
@@ -824,22 +899,25 @@ var HGrid = {
      * @return {Boolean}
      */
     editItem: function(src_uid, name) {
-        var src = this.getItemByValue(this.data, src_uid, &#x27;uid&#x27;);
+        var _this = this;
+        var src = _this.getItemByValue(_this.data, src_uid, &#x27;uid&#x27;);
         var value = {&#x27;item&#x27;: src, &#x27;name&#x27;: name};
         var valueAfter = {&#x27;item&#x27;: src, &#x27;name&#x27;: name};
-        var event_status = this.hGridBeforeEdit.notify(value);
-        if(event_status || typeof(event_status)===&#x27;undefined&#x27;){
-            src[&#x27;name&#x27;]=name;
-            this.Slick.dataView.updateItem(src[&#x27;id&#x27;], src);
-            valueAfter[&#x27;success&#x27;]=true;
-            this.hGridAfterEdit.notify(valueAfter);
-            return true;
-        }
-        else{
-            valueAfter[&#x27;success&#x27;]=false;
-            this.hGridAfterEdit.notify(valueAfter);
-            return false;
-        }
+        var promise = $.when(_this.hGridBeforeEdit.notify(value));
+        promise.always(function(event_status){
+            if(event_status || typeof(event_status)===&#x27;undefined&#x27;){
+                src[&#x27;name&#x27;]=name;
+                _this.Slick.dataView.updateItem(src[&#x27;id&#x27;], src);
+                valueAfter[&#x27;success&#x27;]=true;
+                _this.hGridAfterEdit.notify(valueAfter);
+                return true;
+            }
+            else{
+                valueAfter[&#x27;success&#x27;]=false;
+                _this.hGridAfterEdit.notify(valueAfter);
+                return false;
+            }
+        });
     },
 
     /**
@@ -883,13 +961,14 @@ var HGrid = {
         return propArray;
     },
 
-    prep: function(info){
+    prep: function(hGridInfo){
         var indent = 0;
         var checker = {};
         var i = 0;
         var data_counter=0;
         var output = [];
         var _this = this;
+        var info = hGridInfo.slice();
         while (info.length&gt;=1){
 
             var d = info[i];
@@ -944,7 +1023,7 @@ var HGrid = {
         }
         var sortingCol=&#x27;sortpath&#x27;;
         output.sort(function(a, b){
-            var x = a[sortingCol], y = b[sortingCol];
+            var x = a[sortingCol].toLowerCase(), y = b[sortingCol].toLowerCase();
 
             if(x == y){
                 return 0;
@@ -1151,36 +1230,37 @@ var HGrid = {
 
     //Function called when sort is clicked
     onSort: function (e, args, grid, dataView, data){
-        this.options.sortAsc = !this.options.sortAsc;
+        var _this = this;
+        _this.options.sortAsc = !_this.options.sortAsc;
         var sortingCol = args.sortCol.field;
-        if (sortingCol==&quot;sizeRead&quot;){
-            sortingCol=&quot;size&quot;;
-        }
-        var sorted = this.sortHierarchy(data, sortingCol, dataView, grid);
-        var new_data = this.prepJava(sorted, {&#x27;sorting&#x27;: true});
-        this.data = new_data;
+        var sorted = _this.sortHierarchy(data, sortingCol, dataView, grid);
+        var new_data = _this.prepJava(sorted, {&#x27;sorting&#x27;: true});
+        _this.data = new_data;
         dataView.setItems(new_data);
-        this.currentlyRendered=[];
-        this.updateNav();
+        _this.currentlyRendered=[];
+        _this.updateNav();
+    },
+
+    compare: function(a, b) {
+        var _this = this;
+        if (a instanceof Array &amp;&amp; b instanceof Array) {
+            for (var r, i=0, l=Math.min(a.length, b.length); i&lt;l; i++)
+                if (r = _this.compare(a[i], b[i]))
+                    return r;
+            return a.length - b.length;
+        } else // use native comparison algorithm, including ToPrimitive conversion
+            return (a &gt; b) - (a &lt; b);
     },
 
     sortHierarchy: function (data, sortingCol, dataView, grid){
         var _this = this;
         var sorted = data.sort(function(a, b){
-            var x = a[sortingCol].toLowerCase(), y = b[sortingCol].toLowerCase();
-            if(sortingCol==&#x27;size&#x27;){
-                x = parseInt(x);
-                y = parseInt(y);
-            }
-
-            if(x == y){
-                return 0;
-            }
+            var x = a[sortingCol], y = b[sortingCol];
             if(_this.options.sortAsc){
-                return x &gt; y ? 1 : -1;
+                return -(_this.compare(x,y));
             }
             else{
-                return x &lt; y ? 1 : -1;
+                return _this.compare(x,y);
             }
         });
         var hierarchical = [];
@@ -1200,8 +1280,10 @@ var HGrid = {
                 parentId = undefined;
             }
             if(item.parent == parentId){
-                hierarchical.push(sorted[i]);
-                this.buildHierarchy(sorted, hierarchical, sorted[i]);
+                hierarchical.push(item);
+                if (item[&#x27;type&#x27;] == &#x27;folder&#x27;) {
+                    this.buildHierarchy(sorted, hierarchical, item);
+                }
             }
         }
     },
@@ -1219,6 +1301,16 @@ var HGrid = {
         });
 
         //Before rows are moved, make sure their dest is valid, document source and target
+        _this.Slick.grid.onMouseEnter.subscribe(function(e, args){
+            args[&#x27;e&#x27;] = e;
+            _this.hGridOnMouseEnter.notify(args);
+        });
+
+        _this.Slick.grid.onMouseLeave.subscribe(function(e, args){
+            args[&#x27;e&#x27;] = e;
+            _this.hGridOnMouseLeave.notify(args);
+        });
+
         moveRowsPlugin.onBeforeMoveRows.subscribe(function (e, args) {
             src = [];
             dest = &quot;&quot;;
@@ -1301,20 +1393,22 @@ var HGrid = {
                 value[&#x27;rows&#x27;].push(src_id[j]);
             }
             value[&#x27;insertBefore&#x27;]=args[&#x27;insertBefore&#x27;];
-            var event_status = _this.hGridBeforeMove.notify(value);
-            if(event_status || typeof(event_status)===&#x27;undefined&#x27;){
-                _this.itemMover(value, &quot;/sg_move&quot;, src, dest);
-                value[&#x27;success&#x27;]=true;
-                _this.updateNav();
-                _this.hGridAfterMove.notify(value);
-            }
-            else {
-                _this.removeDraggerGuide();
-                alert(&quot;Move failed&quot;);
-                value[&#x27;success&#x27;]=false;
-                _this.updateNav();
-                _this.hGridAfterMove.notify(value);
-            }
+            var promise = $.when(_this.hGridBeforeMove.notify(value));
+            promise.always(function(event_status){
+                if(event_status || typeof(event_status)===&#x27;undefined&#x27;){
+                    _this.itemMover(value, &quot;/sg_move&quot;, src, dest);
+                    value[&#x27;success&#x27;]=true;
+                    _this.updateNav();
+                    _this.hGridAfterMove.notify(value);
+                }
+                else {
+                    _this.removeDraggerGuide();
+                    alert(&quot;Move failed&quot;);
+                    value[&#x27;success&#x27;]=false;
+                    _this.updateNav();
+                    _this.hGridAfterMove.notify(value);
+                }
+            });
         });
 
         grid.registerPlugin(moveRowsPlugin);
@@ -1324,36 +1418,19 @@ var HGrid = {
             _this.options.editable=false;
             var src=args.item;
             _this.Slick.dataView.updateItem(src.id, src);
-//            $.post(&#x27;/sg_edit&#x27;, {grid_item: JSON.stringify(src)}, function(new_title){
-//                if(new_title!=&quot;fail&quot;){
-//                }
-//                else{
-//                    src[&#x27;name&#x27;]=src[&#x27;uid&#x27;];
-//                    alert(&quot;You can&#x27;t change the uploads folder!&quot;);
-//                    dataView.updateItem(src.id, src);
-//                }
-//            });
         });
 
         grid.onClick.subscribe(function (e, args) {
-            if ($(e.target).hasClass(&quot;toggle&quot;)) {
+            _this.hGridOnClick.notify({e: e, args: args});
+            if ($(e.target).hasClass(&quot;toggle&quot;) || $(e.target).hasClass(&quot;folder&quot;)) {
                 var item = dataView.getItem(args.row);
                 if (item) {
-                    var i=args.row;
-                    var counter = -1;
-                    do{
-                        counter+=1;
-                        i+=1;
-                    }
-                    while(data[i] &amp;&amp; data[i][&#x27;indent&#x27;]&gt;data[args.row][&#x27;indent&#x27;]);
-
+                    _this.currentlyRendered = [];
                     if (!item._collapsed) {
                         item._collapsed = true;
                     } else {
                         item._collapsed = false;
-                        counter=-counter;
                     }
-
                     dataView.updateItem(item.id, item);
                 }
                 e.stopImmediatePropagation();
@@ -1388,17 +1465,16 @@ var HGrid = {
             _this.onSort(e, args, grid, _this.Slick.dataView, _this.data);
         });
 
-//        //When a cell is double clicked, make it editable (unless it&#x27;s uploads)
-//        grid.onDblClick.subscribe(function (e, args) {
-//            if(data[grid.getActiveCell().row][&#x27;uid&#x27;]!=&quot;uploads&quot; &amp;&amp; grid.getActiveCell().cell==grid.getColumnIndex(&#x27;name&#x27;)){
-//                grid.getOptions().editable=true;
-//            }
-//        });
 
         grid.onDblClick.subscribe(function (e, args) {
             var navId = $(e.target).find(&#x27;span.nav-filter-item&#x27;).attr(&#x27;data-hgrid-nav&#x27;);
-            if(navId){
+            var item = _this.getItemByValue(_this.data, navId, &quot;uid&quot;);
+            if(navId &amp;&amp; _this.options.navigation){
                 _this.navLevelFilter(navId);
+                if(_this.dropZoneObj!=null){
+                    _this.dropZoneObj.options.url = item[&#x27;uploadUrl&#x27;];
+                    _this.dropZoneObj.options.dropDestination = item[&#x27;uid&#x27;];
+                }
             }
             e.preventDefault();
         });
@@ -1406,6 +1482,11 @@ var HGrid = {
         // When a Breadcrumb is clicked, the grid filters
         $(_this.options.breadcrumbBox).on(&quot;click&quot;, &quot;.hgrid-breadcrumb&gt;a&quot;, function(e) {
             var navId = $(this).attr(&#x27;data-hgrid-nav&#x27;);
+            var item = _this.getItemByValue(_this.data, navId, &quot;uid&quot;);
+            if(_this.dropZoneObj!=null){
+                _this.dropZoneObj.options.url = item[&#x27;uploadUrl&#x27;];
+                _this.dropZoneObj.options.dropDestination = item[&#x27;uid&#x27;];
+            }
             _this.navLevelFilter(navId);
             e.preventDefault();
 

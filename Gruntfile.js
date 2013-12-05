@@ -26,7 +26,7 @@ grunt.initConfig({
 	   },
 
     qunit: {
-        all: ['examples/test.html']
+        all: ['examples/example.html']
     },
 
     yuidoc: {
@@ -45,6 +45,7 @@ grunt.registerTask('default', ['uglify' , 'copy', 'qunit']);
 
 // Travis tasks
 grunt.registerTask('travis', ['copy', 'qunit']);
+
 
 
 };

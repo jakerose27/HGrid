@@ -9,31 +9,31 @@
 var HGrid = {
     //Gives each div a class based on type (folder or file)
     /**
-    Default options for HGrid
+     Default options for HGrid
 
-    @property defaultOptions
-    @type {Object}
-    @param defaultOptions.container null
-    @param defaultOptions.url null
-    @param defaultOptions.info null
-    @param defaultOptions.columns Uid and Name columns
-    @param defaultOptions.editable false
-    @param defaultOptions.enableCellNavigation false
-    @param defaultOptions.asyncEditorLoading false
-    @param defaultOptions.enableColumnReorder true
-    @param defaultOptions.sortAsc true
-    @param defaultOptions.dragDrop true
-    @param defaultOptions.dropZone true
-    @param defaultOptions.dropZonePreviewsContainer null
-    @param defaultOptions.navLevel null
-    @param defaultOptions.breadcrumbBox null
-    @param defaultOptions.largeGuide true
-    @param defaultOptions.clickUploadElement true
-    @param defaultOptions.topCrumb true
-    @param defaultOptions.forceFitColumns true
-    @param defaultOptions.autoHeight true
-    @param defaultOptions.navigation true
-    **/
+     @property defaultOptions
+     @type {Object}
+     @param defaultOptions.container null
+     @param defaultOptions.url null
+     @param defaultOptions.info null
+     @param defaultOptions.columns Uid and Name columns
+     @param defaultOptions.editable false
+     @param defaultOptions.enableCellNavigation false
+     @param defaultOptions.asyncEditorLoading false
+     @param defaultOptions.enableColumnReorder true
+     @param defaultOptions.sortAsc true
+     @param defaultOptions.dragDrop true
+     @param defaultOptions.dropZone true
+     @param defaultOptions.dropZonePreviewsContainer null
+     @param defaultOptions.navLevel null
+     @param defaultOptions.breadcrumbBox null
+     @param defaultOptions.largeGuide true
+     @param defaultOptions.clickUploadElement true
+     @param defaultOptions.topCrumb true
+     @param defaultOptions.forceFitColumns true
+     @param defaultOptions.autoHeight true
+     @param defaultOptions.navigation true
+     **/
     defaultOptions: {
         container: null,
         url: null,
@@ -64,37 +64,39 @@ var HGrid = {
     },
 
     /**
-    Data for the HGrid
+     Data for the HGrid
 
-    @property data
-    @type Array
-    @default null
-    **/
+     @property data
+     @type Array
+     @default null
+     **/
     data: null,
     /**
-    Currently rendered rows
+     Currently rendered rows
 
-    @property currentlyRendered
-    @type Array
-    @default []
-    **/
+     @property currentlyRendered
+     @type Array
+     @default []
+     **/
     currentlyRendered: [],
     /**
-    Current indent shift
+     Current indent shift
 
-    @property currentIndentShift
-    @type int
-    @default 0
-    **/
+     @property currentIndentShift
+     @type int
+     @default 0
+     **/
     currentIndentShift: 0,
     /**
-    Dropzone Object
+     Dropzone Object
 
-    @property dropZoneObj
-    @type {Object}
-    @default null
-    **/
+     @property dropZoneObj
+     @type {Object}
+     @default null
+     **/
     dropZoneObj: null,
+
+    originalDiv: null,
 
     /**
      * This function creates a new HGrid object and calls initialize()
@@ -136,8 +138,8 @@ var HGrid = {
              @event hGridBeforeMove
              @param {Object} e Event object
              @param {Object} args
-                @param args.rows Array of unique IDs of rows moving
-                @param args.insertBefore Row ID of destination row to insert before
+             @param args.rows Array of unique IDs of rows moving
+             @param args.insertBefore Row ID of destination row to insert before
              **/
             hGridBeforeMove: new self.Slick.Event(),
             /**
@@ -146,8 +148,8 @@ var HGrid = {
              @event hGridAfterMove
              @param {Object} e Event object
              @param {Object} args
-                @param args.rows Array of unique IDs of rows moving
-                @param args.insertBefore Row ID of destination row to insert before
+             @param args.rows Array of unique IDs of rows moving
+             @param args.insertBefore Row ID of destination row to insert before
              **/
             hGridAfterMove: new self.Slick.Event(),
             /**
@@ -156,8 +158,8 @@ var HGrid = {
              @event hGridBeforeEdit
              @param {Object} e Event object
              @param {Object} args
-                @param args.item Item being changed
-                @param args.name New name
+             @param args.item Item being changed
+             @param args.name New name
              **/
             hGridBeforeEdit: new self.Slick.Event(),
             /**
@@ -166,9 +168,9 @@ var HGrid = {
              @event hGridAfterEdit
              @param {Object} e Event object
              @param {Object} args
-                @param args.item Item being changed
-                @param args.name New name
-                @param args.success Boolean, whether or not the edit succeeded
+             @param args.item Item being changed
+             @param args.name New name
+             @param args.success Boolean, whether or not the edit succeeded
              **/
             hGridAfterEdit: new self.Slick.Event(),
             /**
@@ -177,7 +179,7 @@ var HGrid = {
              @event hGridBeforeDelete
              @param {Object} e Event object
              @param {Object} args
-                @param args.items Array of unique IDs to be deleted
+             @param args.items Array of unique IDs to be deleted
              **/
             hGridBeforeDelete: new self.Slick.Event(),
             /**
@@ -186,8 +188,8 @@ var HGrid = {
              @event hGridAfterDelete
              @param {Object} e Event object
              @param {Object} args
-                @param args.items Array of unique IDs to be deleted
-                @param args.success Boolean, whether or not the delete succeeded
+             @param args.items Array of unique IDs to be deleted
+             @param args.success Boolean, whether or not the delete succeeded
              **/
             hGridAfterDelete: new self.Slick.Event(),
             /**
@@ -196,8 +198,8 @@ var HGrid = {
              @event hGridBeforeAdd
              @param {Object} e Event object
              @param {Object} args
-                @param args.item Item to be added
-                @param args.parent Parent item for new item
+             @param args.item Item to be added
+             @param args.parent Parent item for new item
              **/
             hGridBeforeAdd: new self.Slick.Event(),
             /**
@@ -206,9 +208,9 @@ var HGrid = {
              @event hGridAfterAdd
              @param {Object} e Event object
              @param {Object} args
-                @param args.item Item to be added
-                @param args.parent Parent item for new item
-                @param args.success Boolean, whether or not the add succeeded
+             @param args.item Item to be added
+             @param args.parent Parent item for new item
+             @param args.success Boolean, whether or not the add succeeded
              **/
             hGridAfterAdd: new self.Slick.Event(),
             /**
@@ -217,8 +219,8 @@ var HGrid = {
              @event hGridBeforeUpload
              @param {Object} e Event object
              @param {Object} args
-                @param args.item File object being added
-                @param args.parent Parent item for new file
+             @param args.item File object being added
+             @param args.parent Parent item for new file
              **/
             hGridBeforeUpload: new self.Slick.Event(),
             /**
@@ -227,8 +229,8 @@ var HGrid = {
              @event hGridAfterUpload
              @param {Object} e Event object
              @param {Object} args
-                @param args.item File object being added
-                @param args.success Boolean, whether or not the upload succeeded
+             @param args.item File object being added
+             @param args.success Boolean, whether or not the upload succeeded
              **/
             hGridAfterUpload: new self.Slick.Event(),
             /**
@@ -239,7 +241,7 @@ var HGrid = {
              @param {Object} args File object response
              **/
             hGridOnUpload: new self.Slick.Event(),
-             /**
+            /**
              Fired on success response from server on upload
 
              @event hGridAfterNav
@@ -253,8 +255,9 @@ var HGrid = {
 
     initialize: function() {
         var hGridContainer = this.options.container;
+        this.originalDiv = $(hGridContainer)[0].outerHTML;
         var hGridInfo = this.options.info;
-        var hGridColumns = this.options.columns;
+        var hGridColumns = this.options.columns.slice();
         this.data = this.prep(hGridInfo);
         this.Slick = $.extend({}, Slick);
         this.Slick.dataView = new this.Slick.Data.DataView({ inlineFilters: true });
@@ -278,10 +281,10 @@ var HGrid = {
                 elm.formatter = _this.defaultTaskNameFormatter;
             }
         });
-        if(this.options.columns===this.defaultOptions.columns) {
-            this.options.columns[this.Slick.grid.getColumnIndex('name')].formatter = this.defaultTaskNameFormatter;
+        if(hGridColumns===this.defaultOptions.columns) {
+            hGridColumns[this.Slick.grid.getColumnIndex('name')].formatter = this.defaultTaskNameFormatter;
         }
-        this.options.columns[this.Slick.grid.getColumnIndex('name')].validator = this.requiredFieldValidator;
+        hGridColumns[this.Slick.grid.getColumnIndex('name')].validator = this.requiredFieldValidator;
         this.Slick.grid.invalidate();
         this.Slick.grid.render();
         if(this.options.topCrumb) {
@@ -296,6 +299,13 @@ var HGrid = {
                 Dropzone.autoDiscover = false;
             }
         }
+    },
+
+    destroy: function(){
+        var _this = this;
+        $(_this.options.container).html(_this.originalDiv);
+        $(_this.options.breadcrumbBox).html("");
+        _this.Slick.grid.destroy();
     },
 
     defaultTaskNameFormatter: function(row, cell, value, columnDef, dataContext) {
@@ -394,12 +404,12 @@ var HGrid = {
         _this.hGridAfterNav.notify(item);
     },
 
-     /**
+    /**
      * This function updates the breadcrumbs element on the page during navigation of directories
      * @method updateBreadcrumbsBox
      *
      * @param {String} itemUid uid of the new item to display as breadcrumbs parent
-    */
+     */
     updateBreadcrumbsBox: function(itemUid) {
         var _this = this;
         var item = _this.getItemByValue(_this.data, itemUid, "uid");
@@ -585,6 +595,13 @@ var HGrid = {
      */
     addItem: function(item) {
         var _this = this;
+        var columns = _this.Slick.grid.getColumns();
+        for(var i=0; i<columns.length; i++){
+            if(columns[i]['id']!="#" && !item[columns[i]['id']]){
+                alert("This is an invalid item.");
+                return false;
+            }
+        }
 //        if (!item['parent_uid'] || !item['uid'] || !item['name'] || !item['type'] || _this.getItemByValue(_this.data, item['uid'], 'uid')){
 //            alert("This is an invalid item.")
 //            return;
@@ -658,40 +675,40 @@ var HGrid = {
         });
     },
 
-    /**
-     * Allows the user to add a new item to the grid
-     * @method uploadItem
-     *
-     * @param {Object} item New item to be added
-     *  @param item.parent_uid Parent unique ID
-     *  @param item.uid Unique ID
-     *  @param item.name Name
-     *  @param {String} item.type Folder or file
-     * @return {Boolean}
-     */
-    uploadItem: function(item) {
-        var _this = this;
-//        if (!item['parent_uid'] || !item['uid'] || !item['name'] || !item['type'] || _this.getItemByValue(_this.data, item['uid'], 'uid')){
-//            alert("This is an invalid item.");
-//            return;
+//    /**
+//     * Allows the user to add a new item to the grid
+//     * @method uploadItem
+//     *
+//     * @param {Object} item New item to be added
+//     *  @param item.parent_uid Parent unique ID
+//     *  @param item.uid Unique ID
+//     *  @param item.name Name
+//     *  @param {String} item.type Folder or file
+//     * @return {Boolean}
+//     */
+//    uploadItem: function(item) {
+//        var _this = this;
+////        if (!item['parent_uid'] || !item['uid'] || !item['name'] || !item['type'] || _this.getItemByValue(_this.data, item['uid'], 'uid')){
+////            alert("This is an invalid item.");
+////            return;
+////        }
+//        var parent= _this.getItemByValue(_this.data, item['parent_uid'], 'uid');
+//        if(item['parent_uid']!="null"){
+//            var parent_path = parent['path'].slice();
+//            parent_path.push(item['uid']);
+//            item['path'] = parent_path;
+////                item['path'].concat(parent_path, item['uid']);
+//            item['sortpath']=item['path'].join('/');
 //        }
-        var parent= _this.getItemByValue(_this.data, item['parent_uid'], 'uid');
-        if(item['parent_uid']!="null"){
-            var parent_path = parent['path'].slice();
-            parent_path.push(item['uid']);
-            item['path'] = parent_path;
-//                item['path'].concat(parent_path, item['uid']);
-            item['sortpath']=item['path'].join('/');
-        }
-        _this.data.splice(parent['id']+1, 0,item);
-        _this.prepJava(_this.data);
-        _this.Slick.dataView.setItems(_this.data);
-        _this.Slick.grid.invalidate();
-        _this.Slick.grid.setSelectedRows([]);
-        _this.currentlyRendered=[];
-        _this.Slick.grid.render();
-        return true;
-    },
+//        _this.data.splice(parent['id']+1, 0,item);
+//        _this.prepJava(_this.data);
+//        _this.Slick.dataView.setItems(_this.data);
+//        _this.Slick.grid.invalidate();
+//        _this.Slick.grid.setSelectedRows([]);
+//        _this.currentlyRendered=[];
+//        _this.Slick.grid.render();
+//        return true;
+//    },
 
     hasChildren: function(itemUid) {
         var _this = this;
@@ -705,7 +722,7 @@ var HGrid = {
      * @method moveItems
      *
      * @param {Array} src_uid Unique IDs of each item that should move
-     * @param {int} dest Unique ID of the destination parent
+     * @param {String} dest Unique ID of the destination parent
      *
      * @return {Boolean}  True if success, false if failure
      */
@@ -806,19 +823,22 @@ var HGrid = {
      * @method editItem
      *
      * @param src_uid Unique ID of the item to change
-     * @param {String} name New name for the item being changed
+     * @param {String} prop Property of item to change
+     * @param {String} newVal New value for the item being changed
      *
      * @return {Boolean}
      */
-    editItem: function(src_uid, name) {
+    editItem: function(src_uid, prop, newVal) {
         var _this = this;
         var src = _this.getItemByValue(_this.data, src_uid, 'uid');
-        var value = {'item': src, 'name': name};
-        var valueAfter = {'item': src, 'name': name};
+        var value = {'item': src};
+        value[prop] = newVal;
+        var valueAfter = {'item': src};
+        valueAfter[prop] = newVal;
         var promise = $.when(_this.hGridBeforeEdit.notify(value));
         promise.always(function(event_status){
             if(event_status || typeof(event_status)==='undefined'){
-                src['name']=name;
+                src[prop]=newVal;
                 _this.Slick.dataView.updateItem(src['id'], src);
                 valueAfter['success']=true;
                 _this.hGridAfterEdit.notify(valueAfter);
@@ -841,7 +861,7 @@ var HGrid = {
      * @param {String} searchProp Property of target value
      *
      * @return {Object} Item with searchValue or false if not in dataset
-    */
+     */
     getItemByValue: function(data, searchVal, searchProp) {
         var ans;
         for(var i =0; i<data.length; i++){
@@ -862,7 +882,7 @@ var HGrid = {
      * @param {String} searchProp Property of target value
      *
      * @return {Object} Array of items with searchValue
-    */
+     */
     getItemsByValue: function(data, searchVal, searchProp) {
         var propArray = [];
         for(var i =0; i<data.length; i++){
