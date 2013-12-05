@@ -27,12 +27,6 @@ grunt.initConfig({
 
     qunit: {
         all: ['examples/example.html']
-    },
-
-    yuidoc: {
-        options: {
-            paths: 'src/'
-        }
     }
     });
 // Load the plugin that provides the tasks.
